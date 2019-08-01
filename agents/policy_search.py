@@ -1,7 +1,7 @@
 import numpy as np
 from task import Task
 
-class PolicySearch_Agent():
+class PolicySearch_Agent(object):
     def __init__(self, task):
         # Task (environment) information
         self.task = task
