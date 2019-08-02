@@ -23,12 +23,21 @@ class Task():
         self.action_high = 900
         self.action_size = 4
 
-        # Goal
+        # Goal: reach a target coordinate (x, y, z) as fast as possible and hover there for the
+        # remainder of the episode. Erratic motion should be penalized and the drone should be in a
+        # stable pose to minimize energy consumption.
         self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.]) 
 
     def get_reward(self):
         """Uses current pose of sim to return reward."""
-        reward = 1.-.3*(abs(self.sim.pose[:3] - self.target_pos)).sum()
+        reward_w = np.array([1.0, 1.0]) # weights for the reward features
+        # distance reward - how far is the drone from the target position
+        distance = np.linalg.norm(self.sim.pose[:3] - self.target_pos)
+        # rotation stability is more enforced at the target_pos
+        rot_stability = np.linalg.norm(self.sim.pose[3:]) * np.exp(-distance)
+        reward_features = np.array([0.0 - distance, 0.0 - rot_stability])
+        # final reward is a weighted sum of the distance and rotation stability
+        reward = np.dot(reward_w, reward_features)
         return reward
 
     def step(self, rotor_speeds):
@@ -47,3 +56,4 @@ class Task():
         self.sim.reset()
         state = np.concatenate([self.sim.pose] * self.action_repeat) 
         return state
+
