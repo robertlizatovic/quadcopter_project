@@ -30,12 +30,14 @@ class Task():
 
     def get_reward(self):
         """Uses current pose of sim to return reward."""
-        reward_w = np.array([1.0, 1.0]) # weights for the reward features
+        reward_w = np.array([1.0, 0.0]) # weights for the reward features
         # distance reward - how far is the drone from the target position
         distance = np.linalg.norm(self.sim.pose[:3] - self.target_pos)
-        # rotation stability is more enforced at the target_pos
+        # distance normalized to a (0, +1] range
+        dist_norm = 1.0 / (1 + 0.05 * distance)
+        # rotation stability is more enforced close to the target_pos
         rot_stability = np.linalg.norm(self.sim.pose[3:]) * np.exp(-distance)
-        reward_features = np.array([0.0 - distance, 0.0 - rot_stability])
+        reward_features = np.array([dist_norm, 0.0 - rot_stability])
         # final reward is a weighted sum of the distance and rotation stability
         reward = np.dot(reward_w, reward_features)
         return reward
