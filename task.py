@@ -21,7 +21,7 @@ class Task():
 
         self.state_size = self.action_repeat * state_s
         self.action_low = 850
-        self.action_high = 900
+        self.action_high = 860
         self.action_size = 4
 
         # Goal: reach a target coordinate (x, y, z) as fast as possible and hover there for the
