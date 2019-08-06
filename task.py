@@ -17,45 +17,54 @@ class Task():
         # Simulation
         self.sim = PhysicsSim(init_pose, init_velocities, init_angle_velocities, runtime) 
         self.action_repeat = 3
+        state_s = len(self.get_state())
 
-        self.state_size = self.action_repeat * 6
-        self.action_low = 0
+        self.state_size = self.action_repeat * state_s
+        self.action_low = 850
         self.action_high = 900
         self.action_size = 4
 
         # Goal: reach a target coordinate (x, y, z) as fast as possible and hover there for the
-        # remainder of the episode. Erratic motion should be penalized and the drone should be in a
-        # stable pose to minimize energy consumption.
-        self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.]) 
+        # remainder of the episode.
+        self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.])
 
-    def get_reward(self):
+    def get_state(self):
+        """returns the state observable by the agent from the simulation object"""
+        # state contains the following: x, y, z, phi, theta, psi, Vx, Vy, Vz, wx, wy, wz
+        return np.concatenate((self.sim.pose, self.sim.v, self.sim.angular_v))
+
+    def get_reward(self, done):
         """Uses current pose of sim to return reward."""
-        reward_w = np.array([1.0, 0.0]) # weights for the reward features
         # distance reward - how far is the drone from the target position
         distance = np.linalg.norm(self.sim.pose[:3] - self.target_pos)
         # distance normalized to a (0, +1] range
-        dist_norm = 1.0 / (1 + 0.05 * distance)
-        # rotation stability is more enforced close to the target_pos
-        rot_stability = np.linalg.norm(self.sim.pose[3:]) * np.exp(-distance)
-        reward_features = np.array([dist_norm, 0.0 - rot_stability])
-        # final reward is a weighted sum of the distance and rotation stability
-        reward = np.dot(reward_w, reward_features)
+        z = self.sim.pose[2]
+        z_target = self.target_pos[2]
+        if z < z_target:
+            reward = 1.0 / (1 + 0.05 * distance)
+        else:
+            # staying above target height is better
+            reward = 1.0 / (1 + 0.01 * distance)
+        # penalize crashes to keep the drone flying
+        if done and self.sim.time < self.sim.runtime:
+            reward -= 10
         return reward
 
     def step(self, rotor_speeds):
         """Uses action to obtain next state, reward, done."""
         reward = 0
-        pose_all = []
+        state_all = []
         for _ in range(self.action_repeat):
             done = self.sim.next_timestep(rotor_speeds) # update the sim pose and velocities
-            reward += self.get_reward() 
-            pose_all.append(self.sim.pose)
-        next_state = np.concatenate(pose_all)
+            reward += self.get_reward(done)
+            state = self.get_state()
+            state_all.append(state)
+        next_state = np.concatenate(state_all)
         return next_state, reward, done
 
     def reset(self):
         """Reset the sim to start a new episode."""
         self.sim.reset()
-        state = np.concatenate([self.sim.pose] * self.action_repeat) 
+        state = np.concatenate([self.get_state()] * self.action_repeat)
         return state
 

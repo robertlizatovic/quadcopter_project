@@ -66,14 +66,17 @@ class Actor(object):
         net = layers.Dense(units=32)(states)
         net = layers.BatchNormalization()(net)
         net = layers.Activation("relu")(net)
+        net = layers.Dropout(0.2)(net)
 
         net = layers.Dense(units=64)(net)
         net = layers.BatchNormalization()(net)
         net = layers.Activation("relu")(net)
+        net = layers.Dropout(0.2)(net)
 
         net = layers.Dense(units=32)(net)
         net = layers.BatchNormalization()(net)
         net = layers.Activation("relu")(net)
+        net = layers.Dropout(0.2)(net)
 
         # Try different layer sizes, activations, add batch normalization, regularizers, etc.
 
@@ -131,19 +134,23 @@ class Critic(object):
         net_states = layers.Dense(units=32)(states)
         net_states = layers.BatchNormalization()(net_states)
         net_states = layers.Activation("relu")(net_states)
+        net_states = layers.Dropout(0.2)(net_states)
 
         net_states = layers.Dense(units=64)(net_states)
         net_states = layers.BatchNormalization()(net_states)
         net_states = layers.Activation("relu")(net_states)
+        net_states = layers.Dropout(0.2)(net_states)
 
         # Add hidden layer(s) for action pathway
         net_actions = layers.Dense(units=32)(actions)
         net_actions = layers.BatchNormalization()(net_actions)
         net_actions = layers.Activation("relu")(net_actions)
+        net_actions = layers.Dropout(0.2)(net_actions)
 
         net_actions = layers.Dense(units=64)(net_actions)
         net_actions = layers.BatchNormalization()(net_actions)
         net_actions = layers.Activation("relu")(net_actions)
+        net_actions = layers.Dropout(0.2)(net_actions)
 
         # Try different layer sizes, activations, add batch normalization, regularizers, etc.
 
@@ -151,8 +158,13 @@ class Critic(object):
         net = layers.Add()([net_states, net_actions])
         net = layers.BatchNormalization()(net)
         net = layers.Activation('relu')(net)
+        net = layers.Dropout(0.2)(net)
 
         # Add more layers to the combined network if needed
+        net = layers.Dense(units=64)(net)
+        net = layers.BatchNormalization()(net)
+        net = layers.Activation('relu')(net)
+        net = layers.Dropout(0.2)(net)
 
         # Add final output layer to prduce action values (Q values)
         Q_values = layers.Dense(units=1, name='q_values')(net)
@@ -221,17 +233,21 @@ class DDPG(object):
 
         # Learn, if enough samples are available in memory
         if len(self.memory) > self.batch_size:
-            experiences = self.memory.sample()
+            experiences = self.memory.sample(batch_size=self.batch_size)
             self.learn(experiences)
 
         # Roll over last state and action
         self.last_state = next_state
 
-    def act(self, state):
+    def act(self, state, testing=False):
         """Returns actions for given state(s) as per current policy."""
         state = np.reshape(state, [-1, self.state_size])
         action = self.actor_local.model.predict(state)[0]
-        return list(action + self.noise.sample())  # add some noise for exploration
+        # do not add noise when testing the policy
+        if testing:
+            return list(action)
+        else:
+            return list(action + self.noise.sample())  # add some noise for exploration
 
     def learn(self, experiences):
         """Update policy and value parameters using given batch of experience tuples."""
